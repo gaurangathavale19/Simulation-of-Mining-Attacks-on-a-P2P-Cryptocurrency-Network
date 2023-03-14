@@ -1,0 +1,8 @@
+graph parent {
+	node [shape=box]
+	rankdir=LR splines=line
+	G
+	G
+	1
+	G -- 1
+}

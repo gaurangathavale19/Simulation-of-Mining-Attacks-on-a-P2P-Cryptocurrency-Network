@@ -1,0 +1,11 @@
+No. of nodes: 20
+Slow percentage nodes: 50%
+No. of slow nodes: 10
+Low CPU percentage nodes: 50%
+No. of low CPU nodes: 10
+Mean transaction interarrival time: 1
+Mean block interarrival time: 5
+Termination time: 1000
+High CPU nodes hashing power: 0.019999999999999997
+Low CPU nodes hashing power: 0.0019999999999999996
+Adversary hashing power: 0.8

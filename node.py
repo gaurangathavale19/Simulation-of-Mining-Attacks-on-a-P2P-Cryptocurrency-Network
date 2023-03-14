@@ -141,6 +141,7 @@ class Node:
             -simulator_global_time: Global time of the simulator
             -event: object of the event
         '''
+        print(self.hashing_power)
         if self.next_mining_time != event.event_start_time: # need to analyze this once
         # if self.next_mining_time != event.event_start_time: # need to analyze this once
             self.next_mining_time = simulator_global_time + np.random.exponential(self.block_inter_arrival_mean_time/self.hashing_power) # need to analyze this once
@@ -216,11 +217,15 @@ class Node:
         self.block_arrival_timing[block.block_id] = simulator_global_time
         self.blocks.add(block.block_id)
 
+        # if(self.node_id == adversary_index):
+        #     attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+            # print("Gnereate Attacker lead is:", attacker_lead)
+        
         # Broadcast the blocks to the miner's peers
         if(adversary_index != self.node_id):
             return self.broadcast_block(simulator_global_time, block, events)
         else:
-            return []
+            return [Event(curr_node=adversary_index, type="BLK", event_data=None, sender_id=adversary_index, receiver_id="all", event_start_time=simulator_global_time+self.next_mining_time)]
 
     def receive_block(self, simulator_global_time, block, adversary_index):
         '''

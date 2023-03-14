@@ -212,10 +212,12 @@ if __name__ == "__main__":
         next_mining_time = simulator_global_time + np.random.exponential(block_inter_arrival_mean_time/hashing_power_list[id])
         nodes.append(Node(node_id=id, speed=speeds[id], computation_power=computation_powers[id], coins=coins, hashing_power=hashing_power_list[id], block_inter_arrival_mean_time=block_inter_arrival_mean_time, transaction_inter_arrival_mean_time=txn_mean_time, simulator_global_time=simulator_global_time, next_mining_time=next_mining_time))
         # sender_id, receiver_id, coins, transaction_type, timestamp
+        # print(hashing_power_list)
         txn=Transaction("coinbase",id,coins,"init",0)
         initial_txns.append(txn)
     
     adversary = nodes[adversary_index]
+    print(adversary.hashing_power)
     
     # Initialize blockchain tree of all the nodes with the genesis block
     for id in range(total_nodes):
@@ -306,6 +308,7 @@ if __name__ == "__main__":
             curr_node_id = curr_event.curr_node
             event_content = curr_event.event_data
             sender_id = curr_event.sender_id
+            # print(curr_node_id)
 
             # Logging into events.csv
             line = "{},{},{},{},{}\n".format(curr_event.type,curr_event.event_start_time,sender_id,curr_event.receiver_id,curr_node_id)
