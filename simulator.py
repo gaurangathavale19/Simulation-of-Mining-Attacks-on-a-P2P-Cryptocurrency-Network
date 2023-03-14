@@ -18,6 +18,9 @@ import copy
 latencies = []
 global_queue=[]
 
+attacker_lead = 0
+adversary = None
+
 # populate initial node/peer balances
 def populate_peer_balance(transaction_list):
     peer_balance = {}
@@ -32,7 +35,8 @@ def initialize_blockchain(genesis_block):
     return blockchain_tree # this will also be the candidate block
 
 # Creation of the network topology into an adjacency list
-def create_network_topology(total_nodes):
+def create_network_topology(total_nodes, adversary_index, zeta):
+        print('Adversary Index: ', adversary_index)
         mat = {}
 
         min1 = 4
@@ -42,8 +46,13 @@ def create_network_topology(total_nodes):
             mat[i] = []
         start_time = time.time()
         for i in range(total_nodes):
-
-            peers = random.randint(min1, max1)
+            if(i == adversary_index):
+                peers = (total_nodes * zeta)//100
+                upper_bound = peers
+                print(peers)
+            else:
+                peers = random.randint(min1, max1)
+                upper_bound = 8
             # print('Peers:', peers)
             if(len(mat[i]) >= peers):
                 continue
@@ -58,7 +67,7 @@ def create_network_topology(total_nodes):
                 ans = False
                 if(ans == False):
                     peer = random.randint(0, total_nodes-1)
-                    while(len(mat[peer]) == 8 or i==peer):
+                    while(len(mat[peer]) >= upper_bound or i==peer):
                         peer = random.randint(0, total_nodes-1)
                 if(peer not in set1):
                     set1.add(peer)
@@ -112,6 +121,8 @@ if __name__ == "__main__":
     parser.add_argument('--txn_mean_time', required=True, help='Enter interarrival mean time between transactions')
     parser.add_argument('--blk_mean_time', required=True, help='Enter interarrival mean time between blocks')
     parser.add_argument('--termination_time', required=True, help='Enter the termination time of the simulation')
+    parser.add_argument('--zeta', required=True, help='Enter fraction of honest nodes, adversary is connected to')
+    # parser.add_argument('--termination_time', required=True, help='Enter the termination time of the simulation')
 
     args = parser.parse_args()
 
@@ -162,12 +173,19 @@ if __name__ == "__main__":
     random.shuffle(speeds)
     random.shuffle(computation_powers)
 
+    adversary_index = speeds.index(1)
+    
+
     # Creation of the network topology into an adjacency list
-    adj_matrix = create_network_topology(total_nodes)
+    adj_matrix = create_network_topology(total_nodes, adversary_index, int(args.zeta))
     while(adj_matrix == False):
         print("Graph was disconnected! Trying again....")
-        adj_matrix = create_network_topology(total_nodes)
-        
+        adj_matrix = create_network_topology(total_nodes, adversary_index, int(args.zeta))
+
+    for i in adj_matrix:
+        print(i)
+        if(sum(i) > 8):
+            print(sum(i))
     # Compute the hashing power depending on the CPU power of the
     hashing_power_list = []
 
@@ -188,6 +206,7 @@ if __name__ == "__main__":
         txn=Transaction("coinbase",id,coins,"init",0)
         initial_txns.append(txn)
     
+    adversary = nodes[adversary_index]
     
     # Initialize blockchain tree of all the nodes with the genesis block
     for id in range(total_nodes):
