@@ -18,7 +18,6 @@ import copy
 latencies = []
 global_queue=[]
 
-attacker_lead = 0
 adversary = None
 
 # populate initial node/peer balances
@@ -122,7 +121,7 @@ if __name__ == "__main__":
     parser.add_argument('--blk_mean_time', required=True, help='Enter interarrival mean time between blocks')
     parser.add_argument('--termination_time', required=True, help='Enter the termination time of the simulation')
     parser.add_argument('--zeta', required=True, help='Enter fraction of honest nodes, adversary is connected to')
-    # parser.add_argument('--termination_time', required=True, help='Enter the termination time of the simulation')
+    parser.add_argument('--adversary_hashing_power', required=True, help='Enter the hashing power of adversary')
 
     args = parser.parse_args()
 
@@ -144,20 +143,8 @@ if __name__ == "__main__":
     z1 = int(args.lowCPU_nodes)
     number_of_slow_nodes = int(total_nodes*z0/100)
     number_of_low_CPU_nodes = int(total_nodes*z1/100)
-    latencies = [[0 for i in range(total_nodes)] for j in range(total_nodes)]
-
     number_of_high_nodes=total_nodes-number_of_low_CPU_nodes
-    low_hk=1/(number_of_low_CPU_nodes+10*(number_of_high_nodes))
-    high_hk=10*low_hk
-
-    # Populate the run_configurations.txt file with the runtime parameters
-    file_name = str(folder) + '/run_configurations.txt'
-    file = open(file_name, 'w')
-    line = "No. of nodes: {}\nSlow percentage nodes: {}%\nNo. of slow nodes: {}\nLow CPU percentage nodes: {}%\nNo. of low CPU nodes: {}\nMean transaction interarrival time: {}\nMean block interarrival time: {}\nTermination time: {}".format(total_nodes, z0, number_of_slow_nodes, z1, number_of_low_CPU_nodes, txn_mean_time, block_inter_arrival_mean_time, termination_time)
-    file.write(line)
-    line = "\nHigh CPU nodes hashing power: {}\nLow CPU nodes hashing power: {}\n".format(high_hk, low_hk)
-    file.write(line)
-    file.close()
+    latencies = [[0 for i in range(total_nodes)] for j in range(total_nodes)]
 
     print('Number of nodes:', total_nodes)
     print('Number of slow nodes:', number_of_slow_nodes)
@@ -174,6 +161,27 @@ if __name__ == "__main__":
     random.shuffle(computation_powers)
 
     adversary_index = speeds.index(1)
+    adversary_computation_power = computation_powers[adversary_index]
+
+    if(adversary_computation_power == 0): number_of_low_CPU_nodes -= 1 
+    else: number_of_high_nodes -= 1
+
+    adversary_hashing_power = float(args.adversary_hashing_power)
+    honest_hashing_power = 1-adversary_hashing_power
+    low_hk=honest_hashing_power/(number_of_low_CPU_nodes+10*(number_of_high_nodes))
+    high_hk=10*low_hk
+
+    print("high", low_hk*number_of_low_CPU_nodes + high_hk*number_of_high_nodes + adversary_hashing_power)
+    # print(high_hk)
+
+    # Populate the run_configurations.txt file with the runtime parameters
+    file_name = str(folder) + '/run_configurations.txt'
+    file = open(file_name, 'w')
+    line = "No. of nodes: {}\nSlow percentage nodes: {}%\nNo. of slow nodes: {}\nLow CPU percentage nodes: {}%\nNo. of low CPU nodes: {}\nMean transaction interarrival time: {}\nMean block interarrival time: {}\nTermination time: {}".format(total_nodes, z0, number_of_slow_nodes, z1, number_of_low_CPU_nodes, txn_mean_time, block_inter_arrival_mean_time, termination_time)
+    file.write(line)
+    line = "\nHigh CPU nodes hashing power: {}\nLow CPU nodes hashing power: {}\nAdversary hashing power: {}\n".format(high_hk, low_hk, adversary_hashing_power)
+    file.write(line)
+    file.close()
     
 
     # Creation of the network topology into an adjacency list
@@ -194,6 +202,7 @@ if __name__ == "__main__":
             hashing_power_list.append(high_hk)
         else:
             hashing_power_list.append(low_hk)
+    hashing_power_list[adversary_index] = adversary_hashing_power
 
     # Initialize all the peers/nodes with some random amout of BTC in the range 20 to 40 BTC
     initial_txns=[]
@@ -212,8 +221,9 @@ if __name__ == "__main__":
     for id in range(total_nodes):
         nodes[id].genesis_block = Block(creator_id=nodes[id].node_id, creation_time=simulator_global_time, peer_balance=populate_peer_balance(initial_txns), transaction_list=initial_txns, previous_block_hash=0)
         nodes[id].blockchain_tree = nodes[i].candidate_blocks = initialize_blockchain(nodes[id].genesis_block)
-        nodes[id].longest_chain = {'block': nodes[id].genesis_block, 'length': 1}
+        nodes[id].longest_chain_last_block = {'block': nodes[id].genesis_block, 'length': 1}
         nodes[id].block_arrival_timing = { nodes[id].genesis_block.block_id : simulator_global_time}
+        # print(nodes[id].longest_chain_last_block)
 
 
     # Initializing latencies between each pair of directly connected nodes
@@ -305,11 +315,11 @@ if __name__ == "__main__":
             # simulator_global_time = curr_event.event_start_time
 
             if curr_node_id == sender_id:
-                events_generated = nodes[curr_node_id].generate_block(simulator_global_time, curr_event)
+                events_generated = nodes[curr_node_id].generate_block(simulator_global_time, curr_event, adversary_index)
                 # simulator_global_time += next_mining_time
                 # print('Done with generate block')
             else:
-                events_generated = nodes[curr_node_id].receive_block(simulator_global_time, event_content)
+                events_generated = nodes[curr_node_id].receive_block(simulator_global_time, event_content, adversary_index)
                 #print('Done with receive block')
                 
         # If the the even type is TXN i.e. Transaction
@@ -341,7 +351,7 @@ if __name__ == "__main__":
 
     # Loggers 
     for node in nodes:
-        # #print(count,len(node.non_verfied_transaction), len(node.all_transaction), len(node.block_tree), node.longest_chain[1], len(node.all_block_ids.keys()),sep='\t\t')
+        # #print(count,len(node.non_verfied_transaction), len(node.all_transaction), len(node.block_tree), node.longest_chain_last_block[1], len(node.all_block_ids.keys()),sep='\t\t')
         ##print(node.genesis_block.id)
         try:
             # Create the blockchain tree for each node

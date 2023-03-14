@@ -7,6 +7,7 @@ import hashlib
 from queue import Queue
 import copy
 from graphviz import Graph
+from collections import deque
 class Node:
     # speed: slow = 0, fast = 1
     # computation_power: low = 0, high = 1
@@ -38,9 +39,11 @@ class Node:
         self.next_mining_time = next_mining_time
         # self.blockchain_tree, self.candidate_blocks = self.initialize_blockchain()
         self.blockchain_tree = {}
+        self.private_blockchain_tree = deque()
         self.candidate_blocks = {}
-        # self.longest_chain = {'block': self.genesis_block, 'length': 1}
-        self.longest_chain = {}
+        # self.longest_chain_last_block = {'block': self.genesis_block, 'length': 1}
+        self.longest_chain_last_block = {}
+        self.private_longest_chain_last_block = {}
         self.blocks = set()
         self.unverified_blocks = {}
         
@@ -133,7 +136,7 @@ class Node:
         return new_events_generated
 
     # Generate blocks
-    def generate_block(self, simulator_global_time, event):
+    def generate_block(self, simulator_global_time, event, adversary_index):
         '''
             -simulator_global_time: Global time of the simulator
             -event: object of the event
@@ -149,7 +152,13 @@ class Node:
         exp_time = np.random.exponential(self.block_inter_arrival_mean_time/self.hashing_power)
         self.next_mining_time = simulator_global_time + exp_time # need to analyze this once
         valid_txns = []
-        parent_block = self.longest_chain
+        
+        parent_block = self.longest_chain_last_block
+        # If private longest chain last block is NONE, means that attacker has to mine on the longest honest/public chain last block
+        private_parent_block = self.private_longest_chain_last_block
+        if not private_parent_block:
+            private_parent_block = self.longest_chain_last_block
+        # print(parent_block)
         parent_peer_balance = copy.deepcopy(parent_block['block'].peer_balance)
         
         to_be_deleted = []
@@ -190,18 +199,30 @@ class Node:
         # Create a block event 
         events.append(Event(curr_node=self.node_id, type="BLK", event_data=None, sender_id=self.node_id, receiver_id="all", event_start_time=self.next_mining_time))
         
-        # Update the blockchain tree by adding the above block to the blockchain tree
-        self.blockchain_tree[block.block_id] = (block, parent_block['length']+1)
+        # if(self.node_id != adversary_index):
+        if(self.node_id == adversary_index):
+            # Update the blockchain tree by adding the above block to the blockchain tree
+            # self.private_blockchain_tree[block.block_id] = (block, private_parent_block['length']+1)
+            self.private_blockchain_tree.append((block, private_parent_block['length']+1))
 
-        # Update the longest chain and maintain the block arrival timings
-        self.longest_chain = {'block': block, 'length': parent_block['length']+1}
+            # Update the longest chain and maintain the block arrival timings
+            self.private_longest_chain_last_block = {'block': block, 'length': private_parent_block['length']+1}
+        else:
+            # Update the blockchain tree by adding the above block to the blockchain tree
+            self.blockchain_tree[block.block_id] = (block, parent_block['length']+1)
+
+            # Update the longest chain and maintain the block arrival timings
+            self.longest_chain_last_block = {'block': block, 'length': parent_block['length']+1}
         self.block_arrival_timing[block.block_id] = simulator_global_time
         self.blocks.add(block.block_id)
 
         # Broadcast the blocks to the miner's peers
-        return self.broadcast_block(simulator_global_time, block, events)
+        if(adversary_index != self.node_id):
+            return self.broadcast_block(simulator_global_time, block, events)
+        else:
+            return []
 
-    def receive_block(self, simulator_global_time, block):
+    def receive_block(self, simulator_global_time, block, adversary_index):
         '''
             -simulator_global_time: Global time of the simulator
             -block: object of the block
@@ -228,9 +249,53 @@ class Node:
                 self.block_arrival_timing[block.block_id] = simulator_global_time
 
                 # Update the longest chain if new block added changes the longest chain length
-                if(self.longest_chain['length'] < self.blockchain_tree[block.block_id][1]):
-                    self.longest_chain['block'] = block
-                    self.longest_chain['length'] = self.blockchain_tree[block.block_id][1]
+                if(self.longest_chain_last_block['length'] < self.blockchain_tree[block.block_id][1]):
+                    self.longest_chain_last_block['block'] = block
+                    self.longest_chain_last_block['length'] = self.blockchain_tree[block.block_id][1]
+            
+                # Check attacker_lead iff a new block is added to the honest blockchain tree
+                if(adversary_index == self.node_id):
+                    print('Private Longest chain', self.private_longest_chain_last_block)
+                    print('Public longest chain', self.longest_chain_last_block)
+                    if(not self.private_longest_chain_last_block):
+                        self.private_blockchain_tree = deque()
+                        self.private_longest_chain_last_block = {}
+                        return []
+                
+                    attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+                    print("Attacker lead is:", attacker_lead)
+                    if(attacker_lead < 0): # Lead was 0, and became -1, hence attacker will start mining on the longest honest chain
+                        self.private_blockchain_tree = deque()
+                        self.private_longest_chain_last_block = {}
+                        return []
+
+                    # For attacker_lead = 0 : Lead became 0 after new honest block was added, hence release the only attacker block
+                    # For attacker_lead = 1 : Release both the attacker blocks
+                    elif( (attacker_lead == 0) or (attacker_lead == 1) ): 
+                        blocks_to_be_broadcasted_event_list = []
+                        self.longest_chain_last_block = self.private_longest_chain_last_block
+                        for private_block in self.private_blockchain_tree:
+                            self.blockchain_tree[private_block[0].block_id] = private_block
+                            blocks_to_be_broadcasted_event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=blocks_to_be_broadcasted_event_list)
+                        self.private_blockchain_tree = deque()
+                        return blocks_to_be_broadcasted_event_list
+
+                    # elif(attacker_lead == 1): 
+                    #     blocks_to_be_broadcasted_event_list = []
+                    #     self.longest_chain_last_block = self.private_longest_chain_last_block
+                    #     for private_block in self.private_blockchain_tree:
+                    #         self.blockchain_tree[private_block[0].block_id] = private_block
+                    #         blocks_to_be_broadcasted_event_list.extend(self.broadcast_block(simulator_global_time, private_block, event_list=blocks_to_be_broadcasted_event_list))
+                    #     self.private_blockchain_tree = []
+                    #     return blocks_to_be_broadcasted_event_list
+
+
+                    # Attacker lead was > 2, hence release one block (i.e. first private blockchain tree) as and when new honest blocks are added
+                    else: 
+                        blocks_to_be_broadcasted_event_list = []
+                        private_block_to_be_broadcasted = self.private_blockchain_tree.popleft()
+                        return self.broadcast_block(simulator_global_time, private_block_to_be_broadcasted[0], event_list=blocks_to_be_broadcasted_event_list)
+
 
         unverified_block_flag = True
 
@@ -240,9 +305,9 @@ class Node:
                     if self.verify_block(unverified_block):
                         self.blockchain_tree[unverified_block.block_id] = (unverified_block, self.blockchain_tree[unverified_block.previous_block_hash][1] + 1)
                         self.block_arrival_timing[unverified_block.block_id] = simulator_global_time
-                        if(self.longest_chain['length'] < self.blockchain_tree[unverified_block.block_id][1]):
-                            self.longest_chain['block'] = unverified_block
-                            self.longest_chain['length'] = self.blockchain_tree[unverified_block.block_id][1]
+                        if(self.longest_chain_last_block['length'] < self.blockchain_tree[unverified_block.block_id][1]):
+                            self.longest_chain_last_block['block'] = unverified_block
+                            self.longest_chain_last_block['length'] = self.blockchain_tree[unverified_block.block_id][1]
                         del self.unverified_blocks[unverified_block_id]
                         unverified_block_flag = True
                         break
@@ -303,7 +368,7 @@ class Node:
     
     def get_count_of_generated_blocks_in_longest_blockchain(self):
         count = 0
-        last_block_in_blockchain_tree = copy.deepcopy(self.longest_chain['block'])
+        last_block_in_blockchain_tree = copy.deepcopy(self.longest_chain_last_block['block'])
         while(last_block_in_blockchain_tree.previous_block_hash != 0):
             # Check if the cuurent miner created the current block in the longest blockchain tree, and increase the count
             if(last_block_in_blockchain_tree.block_id in self.generated_blocks):
