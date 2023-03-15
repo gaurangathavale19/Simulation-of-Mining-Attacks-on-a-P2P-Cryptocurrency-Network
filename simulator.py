@@ -322,7 +322,16 @@ if __name__ == "__main__":
                 # simulator_global_time += next_mining_time
                 # print('Done with generate block')
             else:
-                events_generated = nodes[curr_node_id].receive_block(simulator_global_time, event_content, adversary_index)
+                # events_generated = nodes[curr_node_id].receive_block(simulator_global_time, event_content, adversary_index)
+                events_generated, abt, alb = nodes[curr_node_id].receive_block(simulator_global_time, event_content, adversary_index)
+                if(alb != None):
+                    for i in range(total_nodes):
+                        if(i!=adversary_index):
+                            # print(abt)
+                            for attacker_block in abt:
+                                nodes[i].blockchain_tree[attacker_block[0].block_id] = attacker_block
+                        nodes[i].longest_chain_last_block = alb
+                # print('Done with receive block')
                 #print('Done with receive block')
                 
         # If the the even type is TXN i.e. Transaction

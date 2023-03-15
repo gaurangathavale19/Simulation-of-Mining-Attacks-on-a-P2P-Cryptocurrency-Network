@@ -245,7 +245,7 @@ class Node:
         
         # Check if the block is seen earlier - to avoid loop
         if block.block_id in self.blocks:
-            return []
+            return [], None, None
         
         self.blocks.add(block.block_id)
         block.peers_visited.append(self.node_id)
@@ -275,14 +275,14 @@ class Node:
                     if(not self.private_longest_chain_last_block):
                         self.private_blockchain_tree = deque()
                         self.private_longest_chain_last_block = {}
-                        return []
+                        return [], None, None
                 
                     attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
                     print("Attacker lead is:", attacker_lead)
                     if(attacker_lead < 0): # Lead was 0, and became -1, hence attacker will start mining on the longest honest chain
                         self.private_blockchain_tree = deque()
                         self.private_longest_chain_last_block = {}
-                        return []
+                        return [], None, None
 
                     # For attacker_lead = 0 : Lead became 0 after new honest block was added, hence release the only attacker block
                     # For attacker_lead = 1 : Release both the attacker blocks
@@ -293,7 +293,7 @@ class Node:
                             self.blockchain_tree[private_block[0].block_id] = private_block
                             blocks_to_be_broadcasted_event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=blocks_to_be_broadcasted_event_list)
                         self.private_blockchain_tree = deque()
-                        return blocks_to_be_broadcasted_event_list
+                        return blocks_to_be_broadcasted_event_list, None, None
 
                         ######################################################################################
                         ########################## Check with CHAUDHARI AND GABANI  ##########################
@@ -304,12 +304,14 @@ class Node:
                         for private_block in self.private_blockchain_tree:
                             self.blockchain_tree[private_block[0].block_id] = private_block
                             blocks_to_be_broadcasted_event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
+                        private_blockchain_tree_copy = copy.deepcopy(self.private_blockchain_tree)
+                        private_longest_chain_last_block_copy = copy.deepcopy(self.private_longest_chain_last_block)
                         self.private_blockchain_tree = deque()
 
                         # self.longest_chain_last_block = self.private_longest_chain_last_block
                         self.private_longest_chain_last_block = {} 
 
-                        return blocks_to_be_broadcasted_event_list
+                        return blocks_to_be_broadcasted_event_list, private_blockchain_tree_copy, private_longest_chain_last_block_copy
 
                     # elif(attacker_lead == 1): 
                     #     blocks_to_be_broadcasted_event_list = []
@@ -326,7 +328,7 @@ class Node:
                         blocks_to_be_broadcasted_event_list = []
                         private_block_to_be_broadcasted = self.private_blockchain_tree.popleft()
                         self.blockchain_tree[private_block_to_be_broadcasted[0].block_id] = private_block_to_be_broadcasted
-                        return self.broadcast_block(simulator_global_time, private_block_to_be_broadcasted[0], event_list=blocks_to_be_broadcasted_event_list)
+                        return self.broadcast_block(simulator_global_time, private_block_to_be_broadcasted[0], event_list=blocks_to_be_broadcasted_event_list), None, None
 
 
         unverified_block_flag = True
@@ -347,7 +349,7 @@ class Node:
                 unverified_block_flag = False
         
         # Broadcast the blocks - to the node's peers
-        return self.broadcast_block(simulator_global_time, block, event_list=[])
+        return self.broadcast_block(simulator_global_time, block, event_list=[]), None, None
 
     def broadcast_block(self, simulator_global_time, block, event_list):
         '''
@@ -438,7 +440,7 @@ class Node:
                         id_to_count[id]="G"
 
                     else:
-                        if(id in self.my_blocks and adversary_index == self.node_id):
+                        if(id in self.my_blocks):
                             hi = "attacker " + id[:4]
                             color = '#FF0000'
                             g.node(hi, style='dashed', color=color)
