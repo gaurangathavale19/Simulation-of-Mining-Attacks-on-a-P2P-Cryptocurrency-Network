@@ -358,7 +358,7 @@ if __name__ == "__main__":
         ##print(node.genesis_block.id)
         try:
             # Create the blockchain tree for each node
-            node.visualize(folder)
+            node.visualize(folder, adversary_index)
         except Exception as e:
             pass
 

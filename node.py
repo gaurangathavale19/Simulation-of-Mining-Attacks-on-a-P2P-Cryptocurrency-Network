@@ -56,6 +56,7 @@ class Node:
         self.transactions=None
         self.block_arrival_timing={}
         self.generated_blocks = set()
+        self.my_blocks = []
 
     # Generate the transaction
     def generate_transaction(self, n, current_time,txn_mean_time):
@@ -160,6 +161,9 @@ class Node:
         if not private_parent_block:
             private_parent_block = self.longest_chain_last_block
         # print(parent_block)
+        # if(adversary_index == self.node_id):
+        #     parent_peer_balance = copy.deepcopy(private_parent_block['block'].peer_balance)
+        # else:
         parent_peer_balance = copy.deepcopy(parent_block['block'].peer_balance)
         
         to_be_deleted = []
@@ -193,7 +197,12 @@ class Node:
         parent_peer_balance[self.node_id] += 50
 
         # Create the blocks with above details
-        block = Block(creator_id=self.node_id , creation_time=event.event_start_time, peer_balance=parent_peer_balance, transaction_list=valid_txns, previous_block_hash=parent_block['block'].block_id) # need to understand creation_time=event.event_start_time
+        if(adversary_index == self.node_id):
+            block = Block(creator_id=self.node_id , creation_time=event.event_start_time, peer_balance=parent_peer_balance, transaction_list=valid_txns, previous_block_hash=private_parent_block['block'].block_id) # need to understand creation_time=event.event_start_time
+        else:
+            # print(private_parent_block['block'].block_id)
+            block = Block(creator_id=self.node_id , creation_time=event.event_start_time, peer_balance=parent_peer_balance, transaction_list=valid_txns, previous_block_hash=parent_block['block'].block_id) # need to understand creation_time=event.event_start_time
+        self.my_blocks.append(block.block_id)
         self.generated_blocks.add(block.block_id)
         block.peers_visited.append(self.node_id)
 
@@ -222,10 +231,11 @@ class Node:
             # print("Gnereate Attacker lead is:", attacker_lead)
         
         # Broadcast the blocks to the miner's peers
+        print('Block created by node id:', self.node_id, block.block_id)
         if(adversary_index != self.node_id):
             return self.broadcast_block(simulator_global_time, block, events)
         else:
-            return [Event(curr_node=adversary_index, type="BLK", event_data=None, sender_id=adversary_index, receiver_id="all", event_start_time=simulator_global_time+self.next_mining_time)]
+            return [Event(curr_node=adversary_index, type="BLK", event_data=None, sender_id=adversary_index, receiver_id="all", event_start_time=self.next_mining_time)]
 
     def receive_block(self, simulator_global_time, block, adversary_index):
         '''
@@ -276,13 +286,29 @@ class Node:
 
                     # For attacker_lead = 0 : Lead became 0 after new honest block was added, hence release the only attacker block
                     # For attacker_lead = 1 : Release both the attacker blocks
-                    elif( (attacker_lead == 0) or (attacker_lead == 1) ): 
+                    elif(attacker_lead == 0): 
                         blocks_to_be_broadcasted_event_list = []
                         self.longest_chain_last_block = self.private_longest_chain_last_block
                         for private_block in self.private_blockchain_tree:
                             self.blockchain_tree[private_block[0].block_id] = private_block
                             blocks_to_be_broadcasted_event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=blocks_to_be_broadcasted_event_list)
                         self.private_blockchain_tree = deque()
+                        return blocks_to_be_broadcasted_event_list
+
+                        ######################################################################################
+                        ########################## Check with CHAUDHARI AND GABANI  ##########################
+                        ######################################################################################
+                    elif(attacker_lead == 1): # Since, the attacker has to release both the blocks hence, now we reach state 0. That's the reason we flush put private_blockchain_tree and the private_longest_chain_last_block
+                        blocks_to_be_broadcasted_event_list = []
+                        self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
+                        for private_block in self.private_blockchain_tree:
+                            self.blockchain_tree[private_block[0].block_id] = private_block
+                            blocks_to_be_broadcasted_event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
+                        self.private_blockchain_tree = deque()
+
+                        # self.longest_chain_last_block = self.private_longest_chain_last_block
+                        self.private_longest_chain_last_block = {} 
+
                         return blocks_to_be_broadcasted_event_list
 
                     # elif(attacker_lead == 1): 
@@ -299,6 +325,7 @@ class Node:
                     else: 
                         blocks_to_be_broadcasted_event_list = []
                         private_block_to_be_broadcasted = self.private_blockchain_tree.popleft()
+                        self.blockchain_tree[private_block_to_be_broadcasted[0].block_id] = private_block_to_be_broadcasted
                         return self.broadcast_block(simulator_global_time, private_block_to_be_broadcasted[0], event_list=blocks_to_be_broadcasted_event_list)
 
 
@@ -382,7 +409,7 @@ class Node:
             last_block_in_blockchain_tree = self.blockchain_tree[last_block_in_blockchain_tree.previous_block_hash][0]
         return count
 
-    def visualize(self, folder):
+    def visualize(self, folder, adversary_index):
         # print("visualize")
         block_map={}
         id_to_count = {}
@@ -411,14 +438,23 @@ class Node:
                         id_to_count[id]="G"
 
                     else:
-                        g.node(node_counter_str)
-                        id_to_count[id]=node_counter_str
+                        if(id in self.my_blocks and adversary_index == self.node_id):
+                            hi = "attacker " + id[:4]
+                            color = '#FF0000'
+                            g.node(hi, style='dashed', color=color)
+                        else:
+                            hi=id[:4]
+                            g.node(hi)
+                        id_to_count[id]=hi
+                        # g.node(node_counter_str)
+                        # id_to_count[id]=node_counter_str
 
                     if id in block_map:
                         hash_queue.put(id)
                     if parent_hash!=0:
                         hash_prev_block=block.previous_block_hash
-                        g.edge(id_to_count[hash_prev_block],node_counter_str)
+                        g.edge(id_to_count[hash_prev_block],hi)
+                        # g.edge(id_to_count[hash_prev_block],node_counter_str)
                     else:
                         g.node('G')
                     node_counter=node_counter+1
