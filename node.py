@@ -8,6 +8,7 @@ from queue import Queue
 import copy
 from graphviz import Graph
 from collections import deque
+attacker_blocks = []
 class Node:
     # speed: slow = 0, fast = 1
     # computation_power: low = 0, high = 1
@@ -155,16 +156,16 @@ class Node:
         self.next_mining_time = simulator_global_time + exp_time # need to analyze this once
         valid_txns = []
         
-        parent_block = self.longest_chain_last_block
+        parent_block = copy.deepcopy(self.longest_chain_last_block)
         # If private longest chain last block is NONE, means that attacker has to mine on the longest honest/public chain last block
-        private_parent_block = self.private_longest_chain_last_block
+        private_parent_block = copy.deepcopy(self.private_longest_chain_last_block)
         if not private_parent_block:
-            private_parent_block = self.longest_chain_last_block
+            private_parent_block = copy.deepcopy(self.longest_chain_last_block)
         # print(parent_block)
-        # if(adversary_index == self.node_id):
-        #     parent_peer_balance = copy.deepcopy(private_parent_block['block'].peer_balance)
-        # else:
-        parent_peer_balance = copy.deepcopy(parent_block['block'].peer_balance)
+        if(adversary_index == self.node_id):
+            parent_peer_balance = copy.deepcopy(private_parent_block['block'].peer_balance)
+        else:
+            parent_peer_balance = copy.deepcopy(parent_block['block'].peer_balance)
         
         to_be_deleted = []
         # Check for valid transactions and add it to valid_transactions
@@ -199,6 +200,7 @@ class Node:
         # Create the blocks with above details
         if(adversary_index == self.node_id):
             block = Block(creator_id=self.node_id , creation_time=event.event_start_time, peer_balance=parent_peer_balance, transaction_list=valid_txns, previous_block_hash=private_parent_block['block'].block_id) # need to understand creation_time=event.event_start_time
+            attacker_blocks.append(block.block_id)
         else:
             # print(private_parent_block['block'].block_id)
             block = Block(creator_id=self.node_id , creation_time=event.event_start_time, peer_balance=parent_peer_balance, transaction_list=valid_txns, previous_block_hash=parent_block['block'].block_id) # need to understand creation_time=event.event_start_time
@@ -288,10 +290,10 @@ class Node:
                     # For attacker_lead = 1 : Release both the attacker blocks
                     elif(attacker_lead == 0): 
                         blocks_to_be_broadcasted_event_list = []
-                        self.longest_chain_last_block = self.private_longest_chain_last_block
+                        self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
                         for private_block in self.private_blockchain_tree:
                             self.blockchain_tree[private_block[0].block_id] = private_block
-                            blocks_to_be_broadcasted_event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=blocks_to_be_broadcasted_event_list)
+                            blocks_to_be_broadcasted_event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
                         self.private_blockchain_tree = deque()
                         return blocks_to_be_broadcasted_event_list
 
@@ -340,6 +342,65 @@ class Node:
                         if(self.longest_chain_last_block['length'] < self.blockchain_tree[unverified_block.block_id][1]):
                             self.longest_chain_last_block['block'] = unverified_block
                             self.longest_chain_last_block['length'] = self.blockchain_tree[unverified_block.block_id][1]
+                            if(adversary_index == self.node_id):
+                                print('Private Longest chain', self.private_longest_chain_last_block)
+                                print('Public longest chain', self.longest_chain_last_block)
+                                if(not self.private_longest_chain_last_block):
+                                    self.private_blockchain_tree = deque()
+                                    self.private_longest_chain_last_block = {}
+                                    return []
+                            
+                                attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+                                print("Attacker lead is:", attacker_lead)
+                                if(attacker_lead < 0): # Lead was 0, and became -1, hence attacker will start mining on the longest honest chain
+                                    self.private_blockchain_tree = deque()
+                                    self.private_longest_chain_last_block = {}
+                                    return []
+
+                                # For attacker_lead = 0 : Lead became 0 after new honest block was added, hence release the only attacker block
+                                # For attacker_lead = 1 : Release both the attacker blocks
+                                elif(attacker_lead == 0): 
+                                    blocks_to_be_broadcasted_event_list = []
+                                    self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
+                                    for private_block in self.private_blockchain_tree:
+                                        self.blockchain_tree[private_block[0].block_id] = private_block
+                                        blocks_to_be_broadcasted_event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=blocks_to_be_broadcasted_event_list)
+                                    self.private_blockchain_tree = deque()
+                                    return blocks_to_be_broadcasted_event_list
+
+                                    ######################################################################################
+                                    ########################## Check with CHAUDHARI AND GABANI  ##########################
+                                    ######################################################################################
+                                elif(attacker_lead == 1): # Since, the attacker has to release both the blocks hence, now we reach state 0. That's the reason we flush put private_blockchain_tree and the private_longest_chain_last_block
+                                    blocks_to_be_broadcasted_event_list = []
+                                    self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
+                                    for private_block in self.private_blockchain_tree:
+                                        self.blockchain_tree[private_block[0].block_id] = private_block
+                                        blocks_to_be_broadcasted_event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
+                                    self.private_blockchain_tree = deque()
+
+                                    # self.longest_chain_last_block = self.private_longest_chain_last_block
+                                    self.private_longest_chain_last_block = {} 
+
+                                    return blocks_to_be_broadcasted_event_list
+
+                                # elif(attacker_lead == 1): 
+                                #     blocks_to_be_broadcasted_event_list = []
+                                #     self.longest_chain_last_block = self.private_longest_chain_last_block
+                                #     for private_block in self.private_blockchain_tree:
+                                #         self.blockchain_tree[private_block[0].block_id] = private_block
+                                #         blocks_to_be_broadcasted_event_list.extend(self.broadcast_block(simulator_global_time, private_block, event_list=blocks_to_be_broadcasted_event_list))
+                                #     self.private_blockchain_tree = []
+                                #     return blocks_to_be_broadcasted_event_list
+
+
+                                # Attacker lead was > 2, hence release one block (i.e. first private blockchain tree) as and when new honest blocks are added
+                                else: 
+                                    blocks_to_be_broadcasted_event_list = []
+                                    private_block_to_be_broadcasted = self.private_blockchain_tree.popleft()
+                                    self.blockchain_tree[private_block_to_be_broadcasted[0].block_id] = private_block_to_be_broadcasted
+                                    return self.broadcast_block(simulator_global_time, private_block_to_be_broadcasted[0], event_list=blocks_to_be_broadcasted_event_list)
+
                         del self.unverified_blocks[unverified_block_id]
                         unverified_block_flag = True
                         break
@@ -438,7 +499,7 @@ class Node:
                         id_to_count[id]="G"
 
                     else:
-                        if(id in self.my_blocks and adversary_index == self.node_id):
+                        if(id in attacker_blocks):
                             hi = "attacker " + id[:4]
                             color = '#FF0000'
                             g.node(hi, style='dashed', color=color)
