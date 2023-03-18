@@ -157,7 +157,7 @@ class Node:
             # For attacker_lead = 0 : Lead became 0 after new honest block was added, hence release the only attacker block
             # For attacker_lead = 1 : Release both the attacker blocks
             elif(attacker_lead == 0): 
-                self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
+                # self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
                 for private_block in self.private_blockchain_tree:
                     self.blockchain_tree[private_block[0].block_id] = private_block
                     event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
@@ -259,6 +259,25 @@ class Node:
         # Create a block event 
         events.append(Event(curr_node=self.node_id, type="BLK", event_data=None, sender_id=self.node_id, receiver_id="all", event_start_time=self.next_mining_time))
         
+        ## To handle attacker 0' lead case ##
+        flag = True
+        print("1111111111111111111111111111111111111111", self.private_longest_chain_last_block)
+        if(self.node_id == adversary_index and self.private_longest_chain_last_block != None):
+            # attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+            print(private_parent_block['block'].block_id != self.longest_chain_last_block['block'].block_id and private_parent_block['block'].previous_block_hash == self.longest_chain_last_block['block'].previous_block_hash)
+            if(private_parent_block['block'].block_id != self.longest_chain_last_block['block'].block_id and private_parent_block['block'].previous_block_hash == self.longest_chain_last_block['block'].previous_block_hash):
+                self.longest_chain_last_block = {'block': block, 'length':private_parent_block['length'] + 1}
+                self.private_longest_chain_last_block = copy.deepcopy(self.longest_chain_last_block)
+                self.blockchain_tree[block.block_id] = (block, private_parent_block['length'] + 1)
+                # self.blockchain_tree[block.block_id] = (block, private_parent_block['length']+1)
+                to_be_broadcasted = self.broadcast_block(simulator_global_time, block, event_list=[])
+                print("555555555555555555555555555555555555555555555555555555", to_be_broadcasted)
+                events += to_be_broadcasted
+                # self.private_longest_chain_last_block = {}
+                # self.private_blockchain_tree = deque()
+                flag = False
+
+
         # if(self.node_id != adversary_index):
         if(self.node_id == adversary_index):
             # Update the blockchain tree by adding the above block to the blockchain tree
@@ -273,26 +292,27 @@ class Node:
             #         self.private_longest_chain_last_block = {}
             #         self.private_blockchain_tree = deque()
             #     else:
-            self.private_blockchain_tree.append((block, private_parent_block['length']+1))
+            if(flag):
+                self.private_blockchain_tree.append((block, private_parent_block['length']+1))
 
-            # Update the longest chain and maintain the block arrival timings
-            self.private_longest_chain_last_block = {'block': block, 'length': private_parent_block['length']+1}
+                # Update the longest chain and maintain the block arrival timings
+                self.private_longest_chain_last_block = {'block': block, 'length': private_parent_block['length']+1}
             # print('Private Longest chain', self.private_longest_chain_last_block)
             # print('Public longest chain', self.longest_chain_last_block)
             # if(self.private_longest_chain_last_block):
-            #     self.private_blockchain_tree = deque()
-            #     self.private_longest_chain_last_block = {}
+            #     # self.private_blockchain_tree = deque()
+            #     # self.private_longest_chain_last_block = {}
 
-                # if(self.private_longest_chain_last_block and self.longest_chain_last_block):
-                #     attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
-                #     print("Attacker lead is:", attacker_lead)
-                #     if(attacker_lead == 1):
-                #         self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
-                #         for private_block in self.private_blockchain_tree:
-                #             self.blockchain_tree[private_block[0].block_id] = private_block
-                #             event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
-                #         self.private_blockchain_tree = deque()
-
+            #     if(self.private_longest_chain_last_block):
+            #         attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+            #         print("Generated Attacker lead is:", attacker_lead)
+            #         if(attacker_lead == 1 and (self.longest_chain_last_block['block'].block_id != self.private_longest_chain_last_block['block'].previous_block_hash or (self.longest_chain_last_block['block'].block_id != self.private_longest_chain_last_block['block'].previous_block_hash and self.private_longest_chain_last_block['block'].previous_block_hash not in attacker_blocks))):
+            #             print("33333333333333333333333333333333333333333333333333333333333333")
+            #             self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
+            #             self.blockchain_tree[block.block_id] = (block, self.private_longest_chain_last_block['length'])
+            #             events += self.broadcast_block(simulator_global_time, block, event_list=[])
+            #             # self.private_longest_chain_last_block = {}
+            #             self.private_blockchain_tree = deque()
                 #     # self.longest_chain_last_block = self.private_longest_chain_last_block
                 #     self.private_longest_chain_last_block = {} 
 
@@ -314,6 +334,7 @@ class Node:
         if(adversary_index != self.node_id):
             return self.broadcast_block(simulator_global_time, block, events)
         else:
+            print("############LENGTH###########", len(events))
             return events
 
     def receive_block(self, simulator_global_time, block, adversary_index):
@@ -461,7 +482,7 @@ class Node:
                 parent_hash = hash_queue.get()
                 parent_hash_dict=block_map[parent_hash]
                 for id,block in parent_hash_dict.items():
-                    print(block.creation_time)
+                    # print(block.creation_time)
                     node_counter_str=str(node_counter)
                     if(node_counter==0):
                         g.node("G")
