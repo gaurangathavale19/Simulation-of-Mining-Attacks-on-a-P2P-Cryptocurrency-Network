@@ -138,7 +138,7 @@ class Node:
         return new_events_generated
 
     # broadcast attacker block
-    def broadcast_attacker_block(self, adversary_index, simulator_global_time, event_list):
+    def broadcast_attacker_block(self, adversary_index, simulator_global_time, event_list, attack_type):
         if(adversary_index == self.node_id):
             print('Private Longest chain', self.private_longest_chain_last_block)
             print('Public longest chain', self.longest_chain_last_block)
@@ -165,14 +165,22 @@ class Node:
                 return event_list
 
             elif(attacker_lead == 1): # Since, the attacker has to release both the blocks hence, now we reach state 0. That's the reason we flush put private_blockchain_tree and the private_longest_chain_last_block
-                self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
-                for private_block in self.private_blockchain_tree:
+                # self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
+                if(attack_type == 'selfish'):
+                    self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
+                    for private_block in self.private_blockchain_tree:
+                        self.blockchain_tree[private_block[0].block_id] = private_block
+                        event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
+                    self.private_longest_chain_last_block = {} 
+                else:
+                    private_block = self.private_blockchain_tree.popleft()
                     self.blockchain_tree[private_block[0].block_id] = private_block
                     event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
                 self.private_blockchain_tree = deque()
 
+
                 # self.longest_chain_last_block = self.private_longest_chain_last_block
-                self.private_longest_chain_last_block = {} 
+                # self.private_longest_chain_last_block = {} 
 
                 return event_list
 
@@ -186,7 +194,7 @@ class Node:
             return event_list
 
     # Generate blocks
-    def generate_block(self, simulator_global_time, event, adversary_index):
+    def generate_block(self, simulator_global_time, event, adversary_index, attack_type):
         '''
             -simulator_global_time: Global time of the simulator
             -event: object of the event
@@ -259,23 +267,24 @@ class Node:
         # Create a block event 
         events.append(Event(curr_node=self.node_id, type="BLK", event_data=None, sender_id=self.node_id, receiver_id="all", event_start_time=self.next_mining_time))
         
+        check_for_0_prime_case = True
+        if(attack_type == 'selfish'):
         ## To handle attacker 0' lead case ##
-        flag = True
-        print("1111111111111111111111111111111111111111", self.private_longest_chain_last_block)
-        if(self.node_id == adversary_index and self.private_longest_chain_last_block != None):
-            # attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
-            print(private_parent_block['block'].block_id != self.longest_chain_last_block['block'].block_id and private_parent_block['block'].previous_block_hash == self.longest_chain_last_block['block'].previous_block_hash)
-            if(private_parent_block['block'].block_id != self.longest_chain_last_block['block'].block_id and private_parent_block['block'].previous_block_hash == self.longest_chain_last_block['block'].previous_block_hash):
-                self.longest_chain_last_block = {'block': block, 'length':private_parent_block['length'] + 1}
-                self.private_longest_chain_last_block = copy.deepcopy(self.longest_chain_last_block)
-                self.blockchain_tree[block.block_id] = (block, private_parent_block['length'] + 1)
-                # self.blockchain_tree[block.block_id] = (block, private_parent_block['length']+1)
-                to_be_broadcasted = self.broadcast_block(simulator_global_time, block, event_list=[])
-                print("555555555555555555555555555555555555555555555555555555", to_be_broadcasted)
-                events += to_be_broadcasted
-                # self.private_longest_chain_last_block = {}
-                # self.private_blockchain_tree = deque()
-                flag = False
+            print("1111111111111111111111111111111111111111", self.private_longest_chain_last_block)
+            if(self.node_id == adversary_index and self.private_longest_chain_last_block != None):
+                # attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+                print(private_parent_block['block'].block_id != self.longest_chain_last_block['block'].block_id and private_parent_block['block'].previous_block_hash == self.longest_chain_last_block['block'].previous_block_hash)
+                if(private_parent_block['block'].block_id != self.longest_chain_last_block['block'].block_id and private_parent_block['block'].previous_block_hash == self.longest_chain_last_block['block'].previous_block_hash):
+                    self.longest_chain_last_block = {'block': block, 'length':private_parent_block['length'] + 1}
+                    self.private_longest_chain_last_block = copy.deepcopy(self.longest_chain_last_block)
+                    self.blockchain_tree[block.block_id] = (block, private_parent_block['length'] + 1)
+                    # self.blockchain_tree[block.block_id] = (block, private_parent_block['length']+1)
+                    to_be_broadcasted = self.broadcast_block(simulator_global_time, block, event_list=[])
+                    print("555555555555555555555555555555555555555555555555555555", to_be_broadcasted)
+                    events += to_be_broadcasted
+                    # self.private_longest_chain_last_block = {}
+                    # self.private_blockchain_tree = deque()
+                    check_for_0_prime_case = False
 
 
         # if(self.node_id != adversary_index):
@@ -292,7 +301,7 @@ class Node:
             #         self.private_longest_chain_last_block = {}
             #         self.private_blockchain_tree = deque()
             #     else:
-            if(flag):
+            if(check_for_0_prime_case):
                 self.private_blockchain_tree.append((block, private_parent_block['length']+1))
 
                 # Update the longest chain and maintain the block arrival timings
@@ -337,7 +346,7 @@ class Node:
             print("############LENGTH###########", len(events))
             return events
 
-    def receive_block(self, simulator_global_time, block, adversary_index):
+    def receive_block(self, simulator_global_time, block, adversary_index, attack_type):
         '''
             -simulator_global_time: Global time of the simulator
             -block: object of the block
@@ -370,7 +379,7 @@ class Node:
                     self.longest_chain_last_block['length'] = self.blockchain_tree[block.block_id][1]
             
                 # Check attacker_lead iff a new block is added to the honest blockchain tree
-                events = self.broadcast_attacker_block(adversary_index, simulator_global_time, events)
+                events = self.broadcast_attacker_block(adversary_index, simulator_global_time, events, attack_type)
 
 
         unverified_block_flag = True
@@ -385,7 +394,7 @@ class Node:
                             self.longest_chain_last_block['block'] = unverified_block
                             self.longest_chain_last_block['length'] = self.blockchain_tree[unverified_block.block_id][1]
                             
-                            events = self.broadcast_attacker_block(adversary_index, simulator_global_time, events)
+                            events = self.broadcast_attacker_block(adversary_index, simulator_global_time, events, attack_type)
 
                         del self.unverified_blocks[unverified_block_id]
                         unverified_block_flag = True

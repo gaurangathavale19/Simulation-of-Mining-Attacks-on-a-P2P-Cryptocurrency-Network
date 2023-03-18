@@ -125,11 +125,12 @@ if __name__ == "__main__":
     parser.add_argument('--termination_time', required=True, help='Enter the termination time of the simulation')
     parser.add_argument('--zeta', required=True, help='Enter fraction of honest nodes, adversary is connected to')
     parser.add_argument('--adversary_hashing_power', required=True, help='Enter the hashing power of adversary')
+    parser.add_argument('--attack_type', required=True, help='selfish or stubborn')
 
     args = parser.parse_args()
 
     # Create folders for loggers and results
-    folder = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    folder = datetime.now().strftime("%Y-%m-%d %H:%M:%S ") + args.attack_type
     os.mkdir(str(folder))
     os.mkdir(str(folder) + '/results')
     os.mkdir(str(folder) + '/loggers')
@@ -144,6 +145,7 @@ if __name__ == "__main__":
     total_nodes = int(args.n_peers)
     z0 = int(args.slow_nodes)
     z1 = int(args.lowCPU_nodes)
+    attack_type = args.attack_type
     number_of_slow_nodes = int(total_nodes*z0/100)
     number_of_low_CPU_nodes = int(total_nodes*z1/100)
     number_of_high_nodes=total_nodes-number_of_low_CPU_nodes
@@ -321,11 +323,11 @@ if __name__ == "__main__":
             # simulator_global_time = curr_event.event_start_time
 
             if curr_node_id == sender_id:
-                events_generated = nodes[curr_node_id].generate_block(simulator_global_time, curr_event, adversary_index)
+                events_generated = nodes[curr_node_id].generate_block(simulator_global_time, curr_event, adversary_index, attack_type)
                 # simulator_global_time += next_mining_time
                 # print('Done with generate block')
             else:
-                events_generated = nodes[curr_node_id].receive_block(simulator_global_time, event_content, adversary_index)
+                events_generated = nodes[curr_node_id].receive_block(simulator_global_time, event_content, adversary_index, attack_type)
                 #print('Done with receive block')
                 
         # If the the even type is TXN i.e. Transaction
