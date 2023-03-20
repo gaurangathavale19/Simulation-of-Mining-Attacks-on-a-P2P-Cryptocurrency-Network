@@ -1,5 +1,6 @@
 import argparse
 import random
+import pandas as pd
 import numpy as np
 import hashlib
 from node import Node
@@ -431,11 +432,35 @@ if __name__ == "__main__":
     print(total_number_of_blocks_mined_by_adversary)
     print(number_of_block_in_main_chain)
     print(number_of_blocks_across_all_nodes)
+    
     if(total_number_of_blocks_mined_by_adversary != 0):
         print("MPU Adversary:", number_of_block_mined_by_the_adversary_in_main_chain/total_number_of_blocks_mined_by_adversary)
+        mpu_adversary = number_of_block_mined_by_the_adversary_in_main_chain/total_number_of_blocks_mined_by_adversary
     else:
         print("MPU Adversary:", 0)
+        mpu_adversary = 0
 
     print("MPU Overall:", number_of_block_in_main_chain/number_of_blocks_across_all_nodes)
+    mpu_overall = number_of_block_in_main_chain/number_of_blocks_across_all_nodes
     
+    results = pd.DataFrame({
+        "n_peers" : [args.n_peers],
+        "slow_nodes" : [args.slow_nodes],
+        "lowCPU_nodes" : [args.lowCPU_nodes],
+        "txn_mean_time" : [args.txn_mean_time],
+        "blk_mean_time" : [args.blk_mean_time],
+        "termination_time" : [args.termination_time],
+        "zeta" : [args.zeta],
+        "adversary_hashing_power" : [args.adversary_hashing_power],
+        "attack_type" : [args.attack_type],
+        "MPU_Adversary" : [mpu_adversary],
+        "MPU_Overall": [mpu_overall]
+    })
+
+    # if file does not exist write header 
+    if not os.path.isfile('./simulation.csv'):
+        results.to_csv('./simulation.csv', header='column_names', index=False)
+    else: # else it exists so append without writing the header
+        results.to_csv('./simulation.csv', mode='a', header=False, index=False)
+
     print(node_info_table)
