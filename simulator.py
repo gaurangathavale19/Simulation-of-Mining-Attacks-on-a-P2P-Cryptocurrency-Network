@@ -431,7 +431,10 @@ if __name__ == "__main__":
     print(total_number_of_blocks_mined_by_adversary)
     print(number_of_block_in_main_chain)
     print(number_of_blocks_across_all_nodes)
-    print("MPU Adversary:", number_of_block_mined_by_the_adversary_in_main_chain/total_number_of_blocks_mined_by_adversary)
+    if(total_number_of_blocks_mined_by_adversary != 0):
+        print("MPU Adversary:", number_of_block_mined_by_the_adversary_in_main_chain/total_number_of_blocks_mined_by_adversary)
+    else:
+        print("MPU Adversary:", 0)
 
     print("MPU Overall:", number_of_block_in_main_chain/number_of_blocks_across_all_nodes)
     
