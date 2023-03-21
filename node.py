@@ -140,56 +140,73 @@ class Node:
     # broadcast attacker block
     def broadcast_attacker_block(self, adversary_index, simulator_global_time, event_list, attack_type):
         if(adversary_index == self.node_id):
-            print('Private Longest chain', self.private_longest_chain_last_block)
-            print('Public longest chain', self.longest_chain_last_block)
-            if(not self.private_longest_chain_last_block):
-                self.private_blockchain_tree = deque()
-                self.private_longest_chain_last_block = {}
-                return event_list
-        
-            attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
-            print("Attacker lead is:", attacker_lead)
-            if(attacker_lead < 0): # Lead was 0, and became -1, hence attacker will start mining on the longest honest chain
-                self.private_blockchain_tree = deque()
-                self.private_longest_chain_last_block = {}
-                return event_list
+            if(attack_type == 'selfish'):
+                print('Private Longest chain', self.private_longest_chain_last_block)
+                print('Public longest chain', self.longest_chain_last_block)
+                if(not self.private_longest_chain_last_block):
+                    self.private_blockchain_tree = deque()
+                    self.private_longest_chain_last_block = {}
+                    return event_list
+            
+                attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+                print("Attacker lead is:", attacker_lead)
+                if(attacker_lead < 0): # Lead was 0, and became -1, hence attacker will start mining on the longest honest chain
+                    self.private_blockchain_tree = deque()
+                    self.private_longest_chain_last_block = {}
+                    return event_list
 
-            # For attacker_lead = 0 : Lead became 0 after new honest block was added, hence release the only attacker block
-            # For attacker_lead = 1 : Release both the attacker blocks
-            elif(attacker_lead == 0): 
-                # self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
-                for private_block in self.private_blockchain_tree:
-                    self.blockchain_tree[private_block[0].block_id] = private_block
-                    event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
-                self.private_blockchain_tree = deque()
-                return event_list
+                # For attacker_lead = 0 : Lead became 0 after new honest block was added, hence release the only attacker block
+                # For attacker_lead = 1 : Release both the attacker blocks
+                elif(attacker_lead == 0): 
+                    # self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
+                    for private_block in self.private_blockchain_tree:
+                        self.blockchain_tree[private_block[0].block_id] = private_block
+                        event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
+                    self.private_blockchain_tree = deque()
+                    return event_list
 
-            elif(attacker_lead == 1): # Since, the attacker has to release both the blocks hence, now we reach state 0. That's the reason we flush put private_blockchain_tree and the private_longest_chain_last_block
-                # self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
-                if(attack_type == 'selfish'):
+                elif(attacker_lead == 1): # Since, the attacker has to release both the blocks hence, now we reach state 0. That's the reason we flush put private_blockchain_tree and the private_longest_chain_last_block
+                    # self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
+                # if(attack_type == 'selfish'):
                     self.longest_chain_last_block = copy.deepcopy(self.private_longest_chain_last_block)
                     for private_block in self.private_blockchain_tree:
                         self.blockchain_tree[private_block[0].block_id] = private_block
                         event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
                     self.private_longest_chain_last_block = {} 
+                    # else:
+                    #     private_block = self.private_blockchain_tree.popleft()
+                    #     self.blockchain_tree[private_block[0].block_id] = private_block
+                    #     event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
+                    # self.private_blockchain_tree = deque()
+
+
+                    # self.longest_chain_last_block = self.private_longest_chain_last_block
+                    # self.private_longest_chain_last_block = {} 
+
+                    return event_list
+
+                # Attacker lead was >= 2, hence release one block (i.e. first private blockchain tree) as and when new honest blocks are added
+                else: 
+                    private_block_to_be_broadcasted = self.private_blockchain_tree.popleft()
+                    self.blockchain_tree[private_block_to_be_broadcasted[0].block_id] = private_block_to_be_broadcasted
+                    event_list += self.broadcast_block(simulator_global_time, private_block_to_be_broadcasted[0], event_list=[])
+                    return event_list
+            else:
+                if(not self.private_longest_chain_last_block):
+                    self.private_blockchain_tree = deque()
+                    self.private_longest_chain_last_block = copy.deepcopy(self.longest_chain_last_block)
+                    return event_list
                 else:
-                    private_block = self.private_blockchain_tree.popleft()
-                    self.blockchain_tree[private_block[0].block_id] = private_block
-                    event_list += self.broadcast_block(simulator_global_time, private_block[0], event_list=[])
-                self.private_blockchain_tree = deque()
-
-
-                # self.longest_chain_last_block = self.private_longest_chain_last_block
-                # self.private_longest_chain_last_block = {} 
-
-                return event_list
-
-            # Attacker lead was > 2, hence release one block (i.e. first private blockchain tree) as and when new honest blocks are added
-            else: 
-                private_block_to_be_broadcasted = self.private_blockchain_tree.popleft()
-                self.blockchain_tree[private_block_to_be_broadcasted[0].block_id] = private_block_to_be_broadcasted
-                event_list += self.broadcast_block(simulator_global_time, private_block_to_be_broadcasted[0], event_list=[])
-                return event_list
+                    if(self.longest_chain_last_block != None):
+                        attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+                        if(attacker_lead >= 0):
+                            block_to_be_broadcated = self.private_blockchain_tree.popleft()
+                            self.blockchain_tree[block_to_be_broadcated[0].block_id] = block_to_be_broadcated
+                            event_list += self.broadcast_block(simulator_global_time, block_to_be_broadcated[0], event_list=[])
+                            return event_list
+                        else:
+                            return event_list
+                    else: return event_list
         else:
             return event_list
 
@@ -285,8 +302,15 @@ class Node:
                     # self.private_longest_chain_last_block = {}
                     # self.private_blockchain_tree = deque()
                     check_for_0_prime_case = False
-
-
+        else:
+            print(self.private_longest_chain_last_block)
+            print(self.longest_chain_last_block)
+            if(self.node_id == adversary_index and self.private_longest_chain_last_block and self.longest_chain_last_block):
+                attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+                if(attacker_lead < 0):
+                    self.blockchain_tree[block.block_id] = (block, private_parent_block['length']+1)
+                    self.private_longest_chain_last_block = {'block': block, 'length': private_parent_block['length']+1}
+                    events += self.broadcast_block(simulator_global_time, block, event_list=[])
         # if(self.node_id != adversary_index):
         if(self.node_id == adversary_index):
             # Update the blockchain tree by adding the above block to the blockchain tree
