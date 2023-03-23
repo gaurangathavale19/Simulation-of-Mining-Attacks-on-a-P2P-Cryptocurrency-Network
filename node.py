@@ -141,15 +141,15 @@ class Node:
     def broadcast_attacker_block(self, adversary_index, simulator_global_time, event_list, attack_type):
         if(adversary_index == self.node_id):
             if(attack_type == 'selfish'):
-                print('Private Longest chain', self.private_longest_chain_last_block)
-                print('Public longest chain', self.longest_chain_last_block)
+                ###print('Private Longest chain', self.private_longest_chain_last_block)
+                ###print('Public longest chain', self.longest_chain_last_block)
                 if(not self.private_longest_chain_last_block):
                     self.private_blockchain_tree = deque()
                     self.private_longest_chain_last_block = {}
                     return event_list
             
                 attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
-                print("Attacker lead is:", attacker_lead)
+                ###print("Attacker lead is:", attacker_lead)
                 if(attacker_lead < 0): # Lead was 0, and became -1, hence attacker will start mining on the longest honest chain
                     self.private_blockchain_tree = deque()
                     self.private_longest_chain_last_block = {}
@@ -197,9 +197,10 @@ class Node:
                     self.private_longest_chain_last_block = copy.deepcopy(self.longest_chain_last_block)
                     return event_list
                 else:
-                    if(self.longest_chain_last_block != None):
+                    if(self.longest_chain_last_block):
                         attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
-                        if(attacker_lead >= 0):
+                        
+                        if(attacker_lead >= 0 and len(self.private_blockchain_tree) > 0):
                             block_to_be_broadcated = self.private_blockchain_tree.popleft()
                             self.blockchain_tree[block_to_be_broadcated[0].block_id] = block_to_be_broadcated
                             event_list += self.broadcast_block(simulator_global_time, block_to_be_broadcated[0], event_list=[])
@@ -217,7 +218,7 @@ class Node:
             -simulator_global_time: Global time of the simulator
             -event: object of the event
         '''
-        print(self.hashing_power)
+        ###print(self.hashing_power)
         if self.next_mining_time != event.event_start_time: # need to analyze this once
         # if self.next_mining_time != event.event_start_time: # need to analyze this once
             self.next_mining_time = simulator_global_time + np.random.exponential(self.block_inter_arrival_mean_time/self.hashing_power) # need to analyze this once
@@ -288,17 +289,17 @@ class Node:
         check_for_0_prime_case = True
         if(attack_type == 'selfish'):
         ## To handle attacker 0' lead case ##
-            print("1111111111111111111111111111111111111111", self.private_longest_chain_last_block)
+            ###print("1111111111111111111111111111111111111111", self.private_longest_chain_last_block)
             if(self.node_id == adversary_index and self.private_longest_chain_last_block != None):
                 # attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
-                print(private_parent_block['block'].block_id != self.longest_chain_last_block['block'].block_id and private_parent_block['block'].previous_block_hash == self.longest_chain_last_block['block'].previous_block_hash)
+                ###print(private_parent_block['block'].block_id != self.longest_chain_last_block['block'].block_id and private_parent_block['block'].previous_block_hash == self.longest_chain_last_block['block'].previous_block_hash)
                 if(private_parent_block['block'].block_id != self.longest_chain_last_block['block'].block_id and private_parent_block['block'].previous_block_hash == self.longest_chain_last_block['block'].previous_block_hash):
                     self.longest_chain_last_block = {'block': block, 'length':private_parent_block['length'] + 1}
                     self.private_longest_chain_last_block = copy.deepcopy(self.longest_chain_last_block)
                     self.blockchain_tree[block.block_id] = (block, private_parent_block['length'] + 1)
                     # self.blockchain_tree[block.block_id] = (block, private_parent_block['length']+1)
                     to_be_broadcasted = self.broadcast_block(simulator_global_time, block, event_list=[])
-                    print("555555555555555555555555555555555555555555555555555555", to_be_broadcasted)
+                    ###print("555555555555555555555555555555555555555555555555555555", to_be_broadcasted)
                     events += to_be_broadcasted
                     # self.private_longest_chain_last_block = {}
                     # self.private_blockchain_tree = deque()
@@ -364,11 +365,11 @@ class Node:
             # print("Gnereate Attacker lead is:", attacker_lead)
         
         # Broadcast the blocks to the miner's peers
-        print('Block created by node id:', self.node_id, block.block_id)
+        ###print('Block created by node id:', self.node_id, block.block_id)
         if(adversary_index != self.node_id):
             return self.broadcast_block(simulator_global_time, block, events)
         else:
-            print("############LENGTH###########", len(events))
+            ###print("############LENGTH###########", len(events))
             return events
 
     def receive_block(self, simulator_global_time, block, adversary_index, attack_type):

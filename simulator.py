@@ -52,7 +52,7 @@ def create_network_topology(total_nodes, adversary_index, zeta):
                 else:
                     peers = total_nodes-1
                 upper_bound = peers
-                print(peers)
+                ###print(peers)
             else:
                 peers = random.randint(min1, max1)
                 upper_bound = 8
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     low_hk=honest_hashing_power/(number_of_low_CPU_nodes+10*(number_of_high_nodes))
     high_hk=10*low_hk
 
-    print("high", low_hk*number_of_low_CPU_nodes + high_hk*number_of_high_nodes + adversary_hashing_power)
+    ###print("high", low_hk*number_of_low_CPU_nodes + high_hk*number_of_high_nodes + adversary_hashing_power)
     # print(high_hk)
 
     # Populate the run_configurations.txt file with the runtime parameters
@@ -223,7 +223,7 @@ if __name__ == "__main__":
         initial_txns.append(txn)
     
     adversary = nodes[adversary_index]
-    print(adversary.hashing_power)
+    ###print(adversary.hashing_power)
     
     # Initialize blockchain tree of all the nodes with the genesis block
     for id in range(total_nodes):
@@ -331,7 +331,7 @@ if __name__ == "__main__":
             else:
                 events_generated = nodes[curr_node_id].receive_block(simulator_global_time, event_content, adversary_index, attack_type)
                 #print('Done with receive block')
-                print(events_generated)
+                ###print(events_generated)
                 
         # If the the even type is TXN i.e. Transaction
         else:
