@@ -326,10 +326,12 @@ if __name__ == "__main__":
             if curr_node_id == sender_id:
                 events_generated = nodes[curr_node_id].generate_block(simulator_global_time, curr_event, adversary_index, attack_type)
                 # simulator_global_time += next_mining_time
+                # print(events_generated)
                 # print('Done with generate block')
             else:
                 events_generated = nodes[curr_node_id].receive_block(simulator_global_time, event_content, adversary_index, attack_type)
                 #print('Done with receive block')
+                print(events_generated)
                 
         # If the the even type is TXN i.e. Transaction
         else:
@@ -351,7 +353,7 @@ if __name__ == "__main__":
             if curr_node_id == sender_id:
                 new_event = curr_node.generate_transaction(total_nodes, simulator_global_time, txn_mean_time)
                 events_generated.append(new_event)
-
+        
         for event in events_generated:
             heapq.heappush(global_queue,event)
 
