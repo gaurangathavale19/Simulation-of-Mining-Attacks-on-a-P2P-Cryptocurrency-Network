@@ -356,6 +356,13 @@ if __name__ == "__main__":
         
         for event in events_generated:
             heapq.heappush(global_queue,event)
+    print(len(adversary.private_blockchain_tree))
+    while(len(adversary.private_blockchain_tree) > 0):
+        block_to_be_broadcasted = adversary.private_blockchain_tree.popleft()
+        for i in range(total_nodes):
+            nodes[i].blockchain_tree[block_to_be_broadcasted[0].block_id] = block_to_be_broadcasted
+            nodes[i].longest_chain_last_block = {'block': block_to_be_broadcasted[0], 'length': block_to_be_broadcasted[1]}
+
 
     print('Reached termination time')
     print('Simulation time in seconds:',time.time() - then)
@@ -412,9 +419,12 @@ if __name__ == "__main__":
         file.write(line)
 
         for block_id, block in node.blockchain_tree.items():
-            line = "{}\t{}\t{}\t{}\n".format(block_id, node.block_arrival_timing[block_id], len(block[0].transaction_list), block[0].peer_balance)
-            # print(line)
-            file.write(line)
+            try:
+                line = "{}\t{}\t{}\t{}\n".format(block_id, node.block_arrival_timing[block_id], len(block[0].transaction_list), block[0].peer_balance)
+                # print(line)
+                file.write(line)
+            except:
+                continue
         file.close()
 
         file = open(file_name.format('transaction', 'transaction'), 'w')

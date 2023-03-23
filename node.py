@@ -205,6 +205,7 @@ class Node:
                             event_list += self.broadcast_block(simulator_global_time, block_to_be_broadcated[0], event_list=[])
                             return event_list
                         else:
+                            self.private_longest_chain_last_block = copy.deepcopy(self.longest_chain_last_block)
                             return event_list
                     else: return event_list
         else:
@@ -302,15 +303,15 @@ class Node:
                     # self.private_longest_chain_last_block = {}
                     # self.private_blockchain_tree = deque()
                     check_for_0_prime_case = False
-        else:
-            print(self.private_longest_chain_last_block)
-            print(self.longest_chain_last_block)
-            if(self.node_id == adversary_index and self.private_longest_chain_last_block and self.longest_chain_last_block):
-                attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
-                if(attacker_lead < 0):
-                    self.blockchain_tree[block.block_id] = (block, private_parent_block['length']+1)
-                    self.private_longest_chain_last_block = {'block': block, 'length': private_parent_block['length']+1}
-                    events += self.broadcast_block(simulator_global_time, block, event_list=[])
+        # else:
+        #     print(self.private_longest_chain_last_block)
+        #     print(self.longest_chain_last_block)
+        #     if(self.node_id == adversary_index and self.private_longest_chain_last_block and self.longest_chain_last_block):
+        #         attacker_lead = self.private_longest_chain_last_block['length'] - self.longest_chain_last_block['length']
+        #         if(attacker_lead < 0):
+        #             self.blockchain_tree[block.block_id] = (block, private_parent_block['length']+1)
+        #             self.private_longest_chain_last_block = {'block': block, 'length': private_parent_block['length']+1}
+        #             events += self.broadcast_block(simulator_global_time, block, event_list=[])
         # if(self.node_id != adversary_index):
         if(self.node_id == adversary_index):
             # Update the blockchain tree by adding the above block to the blockchain tree
